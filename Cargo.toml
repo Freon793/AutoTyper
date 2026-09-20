@@ -1,0 +1,29 @@
+[package]
+name = "autotyper"
+version = "2.0.0"
+edition = "2021"
+rust-version = "1.74"
+description = "智能字符输入助手 — 绕过剪贴板限制，在任何输入框中模拟真实键盘输入"
+license = "MIT"
+repository = "https://github.com/Freon793/AutoTyper"
+readme = "README.md"
+
+[lib]
+name = "autotyper"
+path = "src/lib.rs"
+
+[[bin]]
+name = "AutoTyper"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+indexmap = { version = "2", features = ["serde"] }
+eframe = "0.31"
+rfd = "0.15"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

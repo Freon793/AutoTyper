@@ -1,8 +1,8 @@
 # AutoTyper — 需求规格文档
 
-> **版本**：v1.0.0  
-> **日期**：2026-01-18  
-> **状态**：已实现（本文档保留作需求追溯）
+> **版本**：v2.0.0  
+> **日期**：2026-09-20  
+> **状态**：已实现（本文档保留作需求追溯；v2.0 起为 Rust 实现，v1.x Python 实现归档于 `legacy-python/`）
 
 ---
 
@@ -37,7 +37,7 @@ AutoTyper 是一款通用的 Windows 桌面输入工具，通过调用 Windows �
 | F-02 | 特殊键支持 | 支持回车（`VK_RETURN`）、制表符（`VK_TAB`）等特殊按键 |
 | F-03 | 输入速度控制 | 可配置字符间隔（默认 10ms）和行间延迟（默认 50ms） |
 | F-04 | 倒计时启动 | 输入前提供 5 秒倒计时，让用户切换至目标窗口 |
-| F-05 | 紧急停止 | 支持鼠标移至屏幕四角（PyAutoGUI Failsafe）或 `Ctrl+C` 中断 |
+| F-05 | 紧急停止 | 支持鼠标移至屏幕四角（`GetCursorPos` 角落检测，行为对齐 PyAutoGUI Failsafe）或 `Ctrl+C` 中断 |
 
 ### 2.2 CLI 模式（P0 — 必须实现）
 
@@ -71,8 +71,8 @@ AutoTyper 是一款通用的 Windows 桌面输入工具，通过调用 Windows �
 ### 3.1 兼容性
 
 - **操作系统**：Windows 10 / 11（依赖 `user32.dll`）
-- **Python 版本**：Python 3.8+
-- **依赖最小化**：仅依赖 `pyautogui`（用于紧急停止机制）
+- **工具链**：Rust 1.74+（stable-msvc）
+- **依赖最小化**：GUI 用 `eframe`/`egui`，对话框用 `rfd`，序列化用 `serde`；Win32 API 全部手写 FFI 声明，不依赖 `windows` crate
 
 ### 3.2 性能
 
@@ -81,7 +81,7 @@ AutoTyper 是一款通用的 Windows 桌面输入工具，通过调用 Windows �
 
 ### 3.3 可用性
 
-- 零安装使用：通过 GitHub Releases 提供独立 EXE；源码模式一条命令 `python main.py` 启动
+- 零安装使用：通过 GitHub Releases 提供独立 EXE（无运行时依赖）；源码模式一条命令 `cargo run` 启动
 - GUI 模式零配置：双击即可使用
 - CLI 模式支持脚本化调用
 
@@ -100,36 +100,38 @@ AutoTyper 是一款通用的 Windows 桌面输入工具，通过调用 Windows �
 ```
 AutoTyper/
 ├── src/
-│   ├── core/
-│   │   └── engine.py          # 输入引擎：PostMessageW 封装
-│   ├── cli/
-│   │   └── main.py            # CLI 入口
-│   ├── gui/
-│   │   └── app.py             # GUI 界面（tkinter）
-│   └── config/
-│       └── manager.py         # 配置文件管理
-├── tests/                     # 单元测试
+│   ├── main.rs                # 统一入口（--cli 开关）
+│   ├── lib.rs                 # 库根（平台门禁、版本号）
+│   ├── win32.rs               # Win32 FFI 声明
+│   ├── engine.rs              # 输入引擎：PostMessageW 封装
+│   ├── cli.rs                 # CLI 入口
+│   ├── gui.rs                 # GUI 界面（egui/eframe）
+│   └── config.rs              # 配置文件管理
+├── tests/                     # 端到端注入测试
 ├── docs/                      # 文档
-├── main.py                    # 统一入口
+├── legacy-python/             # v1.x Python 实现归档
+├── Cargo.toml                 # 项目清单（版本号唯一来源）
 └── config.example.json        # 配置模板（运行时生成 config.json）
 ```
 
 ### 4.2 核心调用链
 
 ```
-用户启动 → main.py
-            ├── --cli → cli/main.py → core/engine.py → user32.PostMessageW
-            └── 默认  → gui/app.py  → core/engine.py → user32.PostMessageW
+用户启动 → main.rs
+            ├── --cli → cli.rs → engine.rs → win32.rs::PostMessageW
+            └── 默认  → gui.rs → engine.rs → win32.rs::PostMessageW
 ```
 
 ### 4.3 关键技术决策
 
 | 决策点 | 选择 | 理由 |
 |--------|------|------|
+| 实现语言 | Rust（v2.0 起，替代 Python） | 零运行时依赖、单文件小体积 EXE、原生并发安全；原实现归档保留 |
 | 输入方式 | `PostMessageW(WM_CHAR)` | 绕过剪贴板和键盘事件拦截 |
-| GUI 框架 | `tkinter` | Python 标准库，零额外依赖 |
-| 配置格式 | JSON | 人类可读，Python 原生支持 |
-| 打包方式 | PyInstaller（GitHub Actions 自动构建） | 推送版本标签即发布独立 `.exe` 到 GitHub Releases，仓库不含二进制 |
+| Win32 绑定 | 手写 FFI（不用 `windows` crate） | API 面极小（十余个函数），避免依赖体积与版本漂移 |
+| GUI 框架 | `egui` / `eframe` | 纯 Rust、即时模式、高 DPI 原生支持 |
+| 配置格式 | JSON（serde，保持键序） | 人类可读，与 v1.x `config.json` 完全兼容 |
+| 打包方式 | `cargo build --release`（GitHub Actions 自动构建） | 推送版本标签即发布独立 `.exe` 到 GitHub Releases，仓库不含二进制 |
 
 ---
 
@@ -142,6 +144,7 @@ AutoTyper/
 | M3 | GUI 模式 | `gui/app.py` + tkinter 界面 |
 | M4 | 配置管理 | `config/manager.py` + `config.json` |
 | M5 | 测试 + 文档 | 单元测试 + README + SPEC |
+| M6 | Rust 重写（v2.0） | `src/*.rs` 全模块 + 端到端注入测试 + CI 切换 cargo |
 
 ---
 

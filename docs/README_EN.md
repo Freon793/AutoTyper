@@ -4,7 +4,7 @@
 
 **Smart character input assistant — bypass clipboard restrictions and simulate real keyboard input in any text box**
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Rust 1.74+](https://img.shields.io/badge/rust-1.74+-dea584.svg)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform: Windows](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](https://www.microsoft.com/windows)
 [![CI](https://github.com/Freon793/AutoTyper/actions/workflows/ci.yml/badge.svg)](https://github.com/Freon793/AutoTyper/actions/workflows/ci.yml)
@@ -22,27 +22,28 @@ Some online platforms restrict text input — allowing only clipboard paste or i
 
 AutoTyper injects characters directly through the Windows message queue (`PostMessageW` → `WM_CHAR`). It never touches the clipboard and never triggers keyboard hooks, simulating genuine character-by-character input in the target window.
 
+Since v2.0 the project is fully rewritten in **Rust**: zero runtime dependencies, a single-file EXE, and millisecond startup. The original Python implementation is archived under [`legacy-python/`](../legacy-python/).
+
 ## Quick Start
 
-### Option 1: Download the EXE (recommended, no Python required)
+### Option 1: Download the EXE (recommended)
 
 Download the latest `AutoTyper-vX.Y.Z-win64.exe` from [GitHub Releases](https://github.com/Freon793/AutoTyper/releases) and double-click to run.
 
 Release binaries are built automatically by GitHub Actions in a clean environment, strictly from this repository's source.
 
-### Option 2: Run from Source
+### Option 2: Build from Source
 
 Requirements:
 
 - Windows 10 / 11
-- Python 3.8 or later
-
-Install dependencies:
+- [Rust](https://rustup.rs/) 1.74 or later (stable-msvc toolchain)
 
 ```bash
 git clone https://github.com/Freon793/AutoTyper.git
 cd AutoTyper
-pip install -r requirements.txt
+cargo build --release
+# artifact: target\release\AutoTyper.exe
 ```
 
 ### Usage
@@ -50,25 +51,27 @@ pip install -r requirements.txt
 GUI mode (recommended):
 
 ```bash
-python main.py
+AutoTyper.exe
 ```
 
 CLI mode:
 
 ```bash
 # Type text directly
-python main.py --cli --text "Hello, World!"
+AutoTyper.exe --cli --text "Hello, World!"
 
 # Read from a file
-python main.py --cli --file answer.py
+AutoTyper.exe --cli --file answer.py
 
 # Custom parameters
-python main.py --cli --file answer.py --interval 0.02 --countdown 3
+AutoTyper.exe --cli --file answer.py --interval 0.02 --countdown 3
 
 # Use a saved snippet
-python main.py --cli --snippet "my-snippet"
-python main.py --cli --list-snippets
+AutoTyper.exe --cli --snippet "my-snippet"
+AutoTyper.exe --cli --list-snippets
 ```
+
+During development, use `cargo run` (GUI) or `cargo run -- --cli --text "..."` (CLI).
 
 See the [User Guide](USAGE.md) for the full parameter reference.
 
@@ -80,9 +83,10 @@ See the [User Guide](USAGE.md) for the full parameter reference.
 | Adjustable speed | 5–100ms per character, independent line delay |
 | Countdown start | Configurable countdown before typing begins |
 | Emergency stop | Move the mouse to any screen corner, or press `Ctrl+C`, to abort instantly |
-| Dual mode | Graphical interface (tkinter) and command line |
+| Dual mode | Graphical interface (egui) and command line |
 | Snippet management | Save, load, import and export reusable text snippets |
 | Persistent config | User preferences stored in `config.json` |
+| Native Win32 FFI | Hand-written FFI declarations, no `windows` crate, small binary |
 
 ## Project Structure
 
@@ -91,25 +95,25 @@ AutoTyper/
 ├── .github/
 │   ├── ISSUE_TEMPLATE/        # Issue templates (bug report / feature request)
 │   └── workflows/
-│       ├── ci.yml             # Continuous integration: unit tests on push / PR
+│       ├── ci.yml             # Continuous integration: cargo fmt --check + cargo test on push / PR
 │       └── release.yml        # Release: build EXE on version tag and publish to GitHub Releases
 ├── src/
-│   ├── core/
-│   │   └── engine.py          # Input engine (PostMessageW wrapper)
-│   ├── cli/
-│   │   └── main.py            # CLI entry point
-│   ├── gui/
-│   │   └── app.py             # GUI (tkinter)
-│   └── config/
-│       └── manager.py         # Config file management
-├── tests/                     # Unit tests (pytest)
+│   ├── main.rs                # Unified entry point (--cli switch, windows subsystem in release)
+│   ├── lib.rs                 # Library root (platform gate, version)
+│   ├── win32.rs               # Win32 FFI declarations (PostMessageW / console / failsafe probe)
+│   ├── engine.rs              # Input engine (WM_CHAR / VK_RETURN / VK_TAB injection loop)
+│   ├── cli.rs                 # CLI argument parsing and run flow
+│   ├── gui.rs                 # GUI (egui/eframe)
+│   └── config.rs              # Config file management (serde, order-preserving)
+├── tests/
+│   └── window_injection.rs    # End-to-end test: real hidden probe window verifies the message sequence
+├── legacy-python/             # Archived v1.x Python implementation (tkinter + pytest)
 ├── docs/
 │   ├── README_EN.md           # English README
 │   ├── USAGE.md               # User guide
 │   └── SPEC.md                # Requirements spec
-├── main.py                    # Unified entry point
+├── Cargo.toml                 # Rust manifest (single source of the version number)
 ├── config.example.json        # Config template (config.json is generated at runtime)
-├── requirements.txt           # Python dependencies
 ├── CHANGELOG.md               # Version changelog
 └── LICENSE                    # MIT License
 ```
@@ -136,13 +140,15 @@ AutoTyper/
 | `failsafe` | bool | `true` | Enable mouse-corner emergency stop |
 | `snippets` | object | `{}` | Saved text snippets, `{name: content}` |
 
+The config format is fully compatible with v1.x — an existing `config.json` carries over as-is.
+
 ## How It Works
 
 ```
-User starts → target window focused → countdown → engine.py
+User starts → target window focused → countdown → engine.rs
                                                     │
                                                     ▼
-                                      user32.PostMessageW(
+                                      user32::PostMessageW(
                                           hwnd,    // target window handle
                                           WM_CHAR, // 0x0102
                                           char,    // Unicode code point
@@ -152,40 +158,41 @@ User starts → target window focused → countdown → engine.py
 
 Unlike `SendInput` / `keybd_event` style global keyboard simulation, `PostMessageW` writes straight to the target window's message queue and is immune to keyboard-event interception.
 
+Return and tab are sent as `WM_KEYDOWN` / `WM_KEYUP` pairs (`VK_RETURN` / `VK_TAB`), preserving the same message sequence as real keystrokes.
+
 ## Release Builds
 
 The repository contains no binary artifacts. EXEs are built and published automatically by GitHub Actions:
 
-1. Make sure the version number is consistent (`__version__` in `src/__init__.py`)
+1. Make sure the version number is consistent (`version` in `Cargo.toml`)
 2. Push a version tag:
 
    ```bash
-   git tag v1.0.0
-   git push origin v1.0.0
+   git tag v2.0.0
+   git push origin v2.0.0
    ```
 
-3. The `release.yml` workflow runs the unit tests on windows-latest, packages the app with PyInstaller, and publishes `AutoTyper-v1.0.0-win64.exe` to GitHub Releases
+3. The `release.yml` workflow runs `cargo test` on windows-latest, then `cargo build --release`, and publishes `AutoTyper-v2.0.0-win64.exe` to GitHub Releases
 
 To build manually on your own machine:
 
 ```bash
-pip install pyinstaller
-python -m PyInstaller --onefile --windowed --name "AutoTyper" ^
-    --exclude-module PyQt5 --exclude-module numpy --exclude-module cv2 ^
-    --exclude-module PIL --exclude-module pyscreenshot --exclude-module pymsgbox ^
-    --exclude-module pytweening --exclude-module pygetwindow --exclude-module pyrect ^
-    --exclude-module pyScreeze --exclude-module mouseinfo ^
-    main.py
+cargo build --release
 ```
 
-The artifact is written to `dist/AutoTyper.exe` (`build/`, `dist/` and `*.spec` are excluded by `.gitignore`).
+The artifact is written to `target\release\AutoTyper.exe` (`target/` is excluded by `.gitignore`). Release builds enable LTO and symbol stripping, and use the windows subsystem (no console window in GUI mode; CLI mode re-attaches to the parent terminal for output).
 
 ## Running Tests
 
 ```bash
-pip install pytest
-python -m pytest tests -v
+cargo test
 ```
+
+Tests come in three layers:
+
+- Unit tests for the engine and config (inline in `src/`, pure logic, never touching real windows)
+- Unit tests for CLI parsing and output (mutual exclusion, exit codes, snippet listing, progress-bar rendering)
+- End-to-end injection tests (`tests/window_injection.rs`: a real hidden probe window verifies the full `WM_CHAR` / `WM_KEYDOWN` / `WM_KEYUP` sequence and Unicode code points)
 
 CI is verified automatically on Windows via GitHub Actions (`.github/workflows/ci.yml`).
 
@@ -205,6 +212,8 @@ Issues and pull requests are welcome:
 3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
 4. Push the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+Please make sure `cargo fmt --check` and `cargo test` pass before submitting.
 
 ## License
 

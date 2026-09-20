@@ -1,6 +1,6 @@
 # AutoTyper 使用手册
 
-> 适用版本：v1.0.0 · 平台：Windows 10 / 11
+> 适用版本：v2.0.0（Rust 实现） · 平台：Windows 10 / 11
 
 ---
 
@@ -8,17 +8,17 @@
 
 | 方式 | 步骤 | 适合人群 |
 |------|------|----------|
-| EXE 发行版 | 从 [GitHub Releases](https://github.com/Freon793/AutoTyper/releases) 下载 `AutoTyper-vX.Y.Z-win64.exe`，双击运行 | 所有用户（无需 Python） |
-| 源码运行 | `pip install -r requirements.txt` 后运行 `python main.py` | 开发者 |
-| 本地构建 | `pip install pyinstaller` 后执行 README「发行版构建」一节中的 PyInstaller 命令 | 需要定制的用户 |
+| EXE 发行版 | 从 [GitHub Releases](https://github.com/Freon793/AutoTyper/releases) 下载 `AutoTyper-vX.Y.Z-win64.exe`，双击运行 | 所有用户（无任何运行时依赖） |
+| 源码运行 | 安装 [Rust](https://rustup.rs/) 后执行 `cargo run` | 开发者 |
+| 本地构建 | `cargo build --release`，产物位于 `target\release\AutoTyper.exe` | 需要定制的用户 |
 
-发行版 EXE 由 GitHub Actions 在推送版本标签（`v*`）时自动构建并发布，构建前会先运行完整单元测试。
+发行版 EXE 由 GitHub Actions 在推送版本标签（`v*`）时自动构建并发布，构建前会先运行完整测试。
 
 ---
 
 ## 2. GUI 模式
 
-启动后主界面自上而下为：按钮行（开始输入 / 停止 / 进度条）、参数设置区、文本编辑区，底部为状态栏。
+启动后主界面自上而下为：菜单栏、文本编辑区、参数设置区、按钮行（开始输入 / 停止 / 进度条），底部为状态栏。
 
 ### 基本流程
 
@@ -48,8 +48,10 @@
 所有 CLI 调用都需要 `--cli` 开关：
 
 ```bash
-python main.py --cli [输入源] [参数]
+AutoTyper.exe --cli [输入源] [参数]
 ```
+
+开发调试时等价于 `cargo run -- --cli ...`。
 
 ### 输入源（三选一，互斥）
 
@@ -75,13 +77,13 @@ python main.py --cli [输入源] [参数]
 
 ```bash
 # 输入一句话
-python main.py --cli --text "Hello, World!"
+AutoTyper.exe --cli --text "Hello, World!"
 
 # 输入代码文件，间隔 20ms，倒计时 3 秒
-python main.py --cli --file answer.py --interval 0.02 --countdown 3
+AutoTyper.exe --cli --file answer.py --interval 0.02 --countdown 3
 
 # 使用已保存的片段
-python main.py --cli --snippet "常用代码段"
+AutoTyper.exe --cli --snippet "常用代码段"
 ```
 
 ### 退出码
@@ -89,8 +91,8 @@ python main.py --cli --snippet "常用代码段"
 | 退出码 | 含义 |
 |--------|------|
 | `0` | 输入完成 |
-| `1` | 参数或文件错误 |
-| `2` | 鼠标四角紧急停止 |
+| `1` | 输入源错误（文本为空 / 文件不可读 / 片段不存在 / 未指定输入源） |
+| `2` | 参数解析错误或鼠标四角紧急停止 |
 | `3` | `Ctrl+C` 用户中断 |
 
 ---
@@ -123,7 +125,6 @@ python main.py --cli --snippet "常用代码段"
 | 丢字、内容不完整 | 将字符间隔调大到 10ms 以上 |
 | 中文变成问号或乱码 | 目标输入框不支持 Unicode；确认目标程序的编码设置 |
 | 输入到了错误窗口 | 倒计时结束前确保目标窗口处于前台并获得焦点 |
-| GUI 按钮看不见（高 DPI 屏幕） | 已在 v1.0.0 修复（DPI 感知 + 自适应窗口尺寸）；请使用最新发行版 |
 | 换行处多出空行 | 目标程序同时处理了 `VK_RETURN` 按键事件与换行；属目标程序行为，可将文本合并为单行规避 |
 
 ---

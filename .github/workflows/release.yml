@@ -15,31 +15,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install dependencies
+      - name: Show toolchain version
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller pytest
+          rustc --version
+          cargo --version
 
       - name: Run tests before packaging
-        run: python -m pytest tests -v
+        run: cargo test --verbose
 
-      - name: Build EXE with PyInstaller
-        run: >
-          python -m PyInstaller --onefile --windowed --name AutoTyper
-          --exclude-module PyQt5 --exclude-module numpy --exclude-module cv2
-          --exclude-module PIL --exclude-module pyscreenshot --exclude-module pymsgbox
-          --exclude-module pytweening --exclude-module pygetwindow --exclude-module pyrect
-          --exclude-module pyScreeze --exclude-module mouseinfo
-          main.py
+      - name: Build release EXE
+        run: cargo build --release --verbose
 
       - name: Rename artifact with version and platform
-        run: Move-Item dist/AutoTyper.exe "dist/AutoTyper-${{ github.ref_name }}-win64.exe"
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Move-Item target/release/AutoTyper.exe "dist/AutoTyper-${{ github.ref_name }}-win64.exe"
 
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
