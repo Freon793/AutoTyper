@@ -1,0 +1,7 @@
+{
+  "interval": 0.01,
+  "line_delay": 0.05,
+  "countdown": 5,
+  "failsafe": true,
+  "snippets": {}
+}

@@ -1,0 +1,58 @@
+name: Bug 报告
+description: 报告一个缺陷，帮助我们改进 AutoTyper
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: 感谢提交 Bug 报告！请尽量填写以下信息，方便快速定位问题。
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 清晰简要地描述遇到的问题
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      description: 描述如何复现该问题（GUI 操作或完整 CLI 命令）
+      placeholder: |
+        1. 启动方式（EXE / 源码）与模式（GUI / CLI）
+        2. 操作步骤或命令
+        3. 观察到的实际行为
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: AutoTyper 版本
+      placeholder: 例如 v1.0.0，或源码运行的 commit hash
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 操作系统与显示缩放
+      description: 涉及界面问题时请提供缩放比例；涉及目标程序无法输入时请注明目标程序名称与运行权限（普通/管理员）
+      placeholder: 例如 Windows 11 23H2，缩放 150%
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志与截图
+      description: CLI 输出、状态栏信息、报错截图等
+  - type: checkboxes
+    id: duplicate
+    attributes:
+      label: 查重确认
+      options:
+        - label: 我已搜索现有 Issue，确认没有重复报告
+          required: true
