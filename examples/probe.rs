@@ -231,7 +231,10 @@ fn main() {
 
         let content = BUFFER.lock().unwrap().clone();
         std::fs::write("probe_output.txt", &content).expect("写 probe_output.txt 失败");
-        println!("收到 {} 个字符，已写入 probe_output.txt", content.chars().count());
+        println!(
+            "收到 {} 个字符，已写入 probe_output.txt",
+            content.chars().count()
+        );
         println!("内容: {content}");
     }
 }
