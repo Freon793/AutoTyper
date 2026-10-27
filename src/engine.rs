@@ -72,6 +72,17 @@ impl InputEngine {
         F: FnMut() -> bool,
         G: FnMut(usize, usize),
     {
+        // 归一化换行符：`\r\n` 里的 `\r` 若原样投递会作为字符发出去
+        // （WM_CHAR 码位 13），在目标输入框里多敲出空行。
+        // 剪贴板粘贴与 Windows 下的文本文件都常见 CRLF。
+        let owned;
+        let text: &str = if text.contains('\r') {
+            owned = text.replace("\r\n", "\n").replace('\r', "\n");
+            &owned
+        } else {
+            text
+        };
+
         let lines: Vec<&str> = text.split('\n').collect();
         let total_lines = lines.len();
         let total_chars = text.chars().count();
@@ -246,5 +257,31 @@ mod tests {
         );
         // 8 个 Unicode 字符（含全角标点与数学符号）
         assert_eq!(sent, 8);
+    }
+
+    #[test]
+    fn crlf_normalized_instead_of_typing_carriage_return() {
+        // `\r` 不能被当作字符投递：CRLF 应归一为单个换行。
+        // 未归一化时 "ab\r\ncd" 会发出 5 个字符（含 \r）。
+        let engine = InputEngine::new(0.0, 0.0);
+        let sent = engine.type_text(
+            NULL_HWND,
+            "ab\r\ncd",
+            None::<fn(usize, usize)>,
+            None::<fn() -> bool>,
+        );
+        assert_eq!(sent, 4);
+    }
+
+    #[test]
+    fn lone_carriage_return_normalized() {
+        let engine = InputEngine::new(0.0, 0.0);
+        let sent = engine.type_text(
+            NULL_HWND,
+            "a\rb",
+            None::<fn(usize, usize)>,
+            None::<fn() -> bool>,
+        );
+        assert_eq!(sent, 2);
     }
 }

@@ -25,6 +25,7 @@ pub struct CliOptions {
     pub line_delay: Option<f64>,
     pub countdown: Option<i64>,
     pub no_failsafe: bool,
+    pub strip_markdown: bool,
     pub list_snippets: bool,
     pub help: bool,
 }
@@ -56,6 +57,7 @@ AutoTyper - 智能字符输入助手
   --line-delay <秒>        行间延迟，默认 0.05
   --countdown <秒>         启动前倒计时，默认 5
   --no-failsafe            禁用鼠标紧急停止
+  --strip-markdown         将输入文本中的 Markdown 标记转为纯文本后再输入
   --list-snippets          列出所有已保存的文本片段
   -h, --help               显示此帮助信息
 
@@ -63,6 +65,7 @@ AutoTyper - 智能字符输入助手
   AutoTyper --cli --text \"Hello, World!\"
   AutoTyper --cli --file answer.py
   AutoTyper --cli --file answer.py --interval 0.02 --countdown 3
+  AutoTyper --cli --file answer.md --strip-markdown
   AutoTyper --cli --snippet \"常用代码段\"
 "
     )
@@ -89,6 +92,7 @@ pub fn parse_args(args: &[String]) -> Result<CliOptions, String> {
             "-h" | "--help" => opts.help = true,
             "--list-snippets" => opts.list_snippets = true,
             "--no-failsafe" => opts.no_failsafe = true,
+            "--strip-markdown" => opts.strip_markdown = true,
             "-t" | "--text" => {
                 opts.text = Some(take_value(args, &mut i, arg)?);
             }
@@ -278,6 +282,18 @@ pub fn run_cli(args: &[String]) -> i32 {
         return 1;
     }
 
+    // 可选：把 Markdown 标记转为纯文本（对三种输入源都生效）
+    let text = if opts.strip_markdown {
+        crate::markdown::to_plain_text(&text)
+    } else {
+        text
+    };
+
+    if text.trim().is_empty() {
+        println!("[错误] 转换后文本为空");
+        return 1;
+    }
+
     // 确定参数（命令行优先，其次配置文件）
     let interval = opts.interval.unwrap_or(config.config.interval).max(0.0);
     let line_delay = opts.line_delay.unwrap_or(config.config.line_delay).max(0.0);
@@ -416,6 +432,15 @@ mod tests {
         assert!(opts.list_snippets);
         assert!(opts.no_failsafe);
         assert!(opts.help);
+    }
+
+    #[test]
+    fn parse_strip_markdown_flag() {
+        let opts = parse_args(&argv(&["-t", "x", "--strip-markdown"])).unwrap();
+        assert!(opts.strip_markdown);
+        // 默认关闭，保持既有脚本行为不变
+        let opts = parse_args(&argv(&["-t", "x"])).unwrap();
+        assert!(!opts.strip_markdown);
     }
 
     #[test]

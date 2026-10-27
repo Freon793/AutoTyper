@@ -9,6 +9,7 @@
 //! - [`config`]：配置文件与文本片段管理
 //! - [`cli`]：命令行模式
 //! - [`gui`]：图形界面模式（egui/eframe）
+//! - [`markdown`]：Markdown 转纯文本（用于不支持 Markdown 的输入框）
 
 #[cfg(not(windows))]
 compile_error!("AutoTyper 仅支持 Windows（依赖 user32.dll）");
@@ -17,6 +18,7 @@ pub mod cli;
 pub mod config;
 pub mod engine;
 pub mod gui;
+pub mod markdown;
 pub mod win32;
 
 /// 版本号（与 Cargo.toml 保持一致）

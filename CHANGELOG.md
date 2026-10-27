@@ -6,6 +6,18 @@
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-27
+
+### Added
+
+- Markdown 转纯文本：GUI 文本区新增「转为纯文本」按钮，一键把 AI 输出的 Markdown 转为适合纯文本框的等宽文本，转换后可「撤销转换」回到原文
+- CLI 新增 `--strip-markdown` 开关（默认关闭），对 `--text` / `--file` / `--snippet` 三种输入源均生效
+- 新模块 `src/markdown.rs`：零依赖的手写两阶段转换器（块级切分 + 行内处理），45 个单元测试，覆盖表格中日韩宽度对齐、LaTeX 白名单转换与幂等性
+
+### Fixed
+
+- 输入含 CRLF 的文本（Windows 文本文件、剪贴板粘贴）时，`\r` 会被当作字符投递（`WM_CHAR` 码位 13），在目标输入框里多敲出空行；现由引擎层统一归一为换行
+
 ## [2.0.0] - 2026-09-20
 
 项目由 Python 全面重写为 **Rust**（功能与 v1.0.0 逐项对齐，`config.json` 格式完全兼容）。
@@ -46,6 +58,7 @@
 - GitHub Actions：`ci.yml`（push / PR 时在 windows-latest × Python 3.9 / 3.11 / 3.12 上运行测试）与 `release.yml`（推送 `v*` 标签时构建 EXE 并自动发布到 GitHub Releases）
 - 文档：中英双语 README、使用手册（`docs/USAGE.md`）、需求规格（`docs/SPEC.md`）、Issue 模板
 
-[Unreleased]: https://github.com/Freon793/AutoTyper/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Freon793/AutoTyper/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/Freon793/AutoTyper/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/Freon793/AutoTyper/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/Freon793/AutoTyper/releases/tag/v1.0.0

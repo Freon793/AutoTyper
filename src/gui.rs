@@ -40,6 +40,9 @@ pub struct AutoTyperApp {
 
     /// 片段命名模态框（None = 关闭）
     snippet_dialog: Option<String>,
+
+    /// Markdown 转换前的原文（None = 当前没有可撤销的转换）
+    markdown_undo: Option<String>,
 }
 
 impl AutoTyperApp {
@@ -60,6 +63,7 @@ impl AutoTyperApp {
                 running: false,
             })),
             snippet_dialog: None,
+            markdown_undo: None,
         }
     }
 
@@ -78,6 +82,8 @@ impl AutoTyperApp {
             match std::fs::read_to_string(&path) {
                 Ok(content) => {
                     self.text = content;
+                    // 载入新内容后旧撤销点已无意义
+                    self.markdown_undo = None;
                     self.set_status(&format!("已加载: {}", path.display()));
                 }
                 Err(e) => {
@@ -112,6 +118,7 @@ impl AutoTyperApp {
             return;
         }
         self.config.add_snippet(&name, &content);
+        self.markdown_undo = None;
         self.set_status(&format!("已保存片段: {name}"));
     }
 
@@ -186,6 +193,8 @@ impl AutoTyperApp {
             return;
         }
 
+        // 开始输入后不再保留转换撤销点
+        self.markdown_undo = None;
         self.running = true;
         self.stop_flag.store(false, Ordering::SeqCst);
         {
@@ -224,6 +233,35 @@ impl AutoTyperApp {
 
     fn set_status(&mut self, text: &str) {
         self.shared.lock().unwrap().status = text.to_string();
+    }
+
+    // ---- Markdown 转换 ----
+
+    /// 把文本区内容转换为纯文本，并保留撤销点
+    ///
+    /// 转换后的内容直接替换文本区——所见即所输，用户能立刻确认结果；
+    /// 原文保存在 `markdown_undo`，供「撤销转换」恢复。
+    fn convert_markdown(&mut self) {
+        let converted = crate::markdown::to_plain_text(&self.text);
+        if converted == self.text {
+            self.set_status("未检测到需要转换的 Markdown 标记");
+            return;
+        }
+        if converted.trim().is_empty() {
+            self.set_status("转换后文本为空，已保留原文");
+            return;
+        }
+        let original = std::mem::replace(&mut self.text, converted);
+        self.markdown_undo = Some(original);
+        self.set_status("已转换为纯文本");
+    }
+
+    /// 撤销转换，恢复转换前的原文
+    fn undo_markdown(&mut self) {
+        if let Some(original) = self.markdown_undo.take() {
+            self.text = original;
+            self.set_status("已撤销转换");
+        }
     }
 
     // ---- 界面绘制 ----
@@ -360,15 +398,41 @@ impl AutoTyperApp {
     fn draw_text_area(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.group(|ui| {
-                ui.label(egui::RichText::new("输入文本").strong());
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new("输入文本").strong());
+
+                    let (label, hint) = if self.markdown_undo.is_some() {
+                        ("撤销转换", "恢复转换前的原文")
+                    } else {
+                        (
+                            "转为纯文本",
+                            "去掉 Markdown 语法标记，用于不支持 Markdown 的输入框",
+                        )
+                    };
+                    if ui
+                        .add_enabled(!self.running, egui::Button::new(label))
+                        .on_hover_text(hint)
+                        .clicked()
+                    {
+                        if self.markdown_undo.is_some() {
+                            self.undo_markdown();
+                        } else {
+                            self.convert_markdown();
+                        }
+                    }
+                });
                 ui.add_space(4.0);
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    ui.add(
+                    let response = ui.add(
                         egui::TextEdit::multiline(&mut self.text)
                             .font(egui::TextStyle::Monospace)
                             .desired_width(f32::INFINITY)
                             .desired_rows(12),
                     );
+                    // 用户一旦手工编辑，撤销点即失效——否则「撤销」会覆盖掉新输入的内容
+                    if response.changed() {
+                        self.markdown_undo = None;
+                    }
                 });
             });
         });

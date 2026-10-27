@@ -66,6 +66,9 @@ AutoTyper.exe --cli --file answer.py
 # Custom parameters
 AutoTyper.exe --cli --file answer.py --interval 0.02 --countdown 3
 
+# Type an AI-generated Markdown file as plain text
+AutoTyper.exe --cli --file answer.md --strip-markdown
+
 # Use a saved snippet
 AutoTyper.exe --cli --snippet "my-snippet"
 AutoTyper.exe --cli --list-snippets
@@ -85,6 +88,7 @@ See the [User Guide](USAGE.md) for the full parameter reference.
 | Emergency stop | Move the mouse to any screen corner, or press `Ctrl+C`, to abort instantly |
 | Dual mode | Graphical interface (egui) and command line |
 | Snippet management | Save, load, import and export reusable text snippets |
+| Markdown to plain text | Strip Markdown markers from AI output in one click (width-aligned tables, whitelisted LaTeX conversion) for input boxes that do not render Markdown |
 | Persistent config | User preferences stored in `config.json` |
 | Native Win32 FFI | Hand-written FFI declarations, no `windows` crate, small binary |
 
@@ -104,6 +108,7 @@ AutoTyper/
 │   ├── engine.rs              # Input engine (WM_CHAR / VK_RETURN / VK_TAB injection loop)
 │   ├── cli.rs                 # CLI argument parsing and run flow
 │   ├── gui.rs                 # GUI (egui/eframe)
+│   ├── markdown.rs            # Markdown to plain text (dependency-free converter)
 │   └── config.rs              # Config file management (serde, order-preserving)
 ├── tests/
 │   └── window_injection.rs    # End-to-end test: real hidden probe window verifies the message sequence
@@ -168,11 +173,11 @@ The repository contains no binary artifacts. EXEs are built and published automa
 2. Push a version tag:
 
    ```bash
-   git tag v2.0.0
-   git push origin v2.0.0
+   git tag v2.1.0
+   git push origin v2.1.0
    ```
 
-3. The `release.yml` workflow runs `cargo test` on windows-latest, then `cargo build --release`, and publishes `AutoTyper-v2.0.0-win64.exe` to GitHub Releases
+3. The `release.yml` workflow runs `cargo test` on windows-latest, then `cargo build --release`, and publishes `AutoTyper-v2.1.0-win64.exe` to GitHub Releases
 
 To build manually on your own machine:
 

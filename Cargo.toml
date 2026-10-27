@@ -1,6 +1,6 @@
 [package]
 name = "autotyper"
-version = "2.0.0"
+version = "2.1.0"
 edition = "2021"
 rust-version = "1.74"
 description = "智能字符输入助手 — 绕过剪贴板限制，在任何输入框中模拟真实键盘输入"

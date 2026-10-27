@@ -1,8 +1,8 @@
 # AutoTyper — 需求规格文档
 
-> **版本**：v2.0.0  
-> **日期**：2026-09-20  
-> **状态**：已实现（本文档保留作需求追溯；v2.0 起为 Rust 实现，v1.x Python 实现归档于 `legacy-python/`）
+> **版本**：v2.1.0  
+> **日期**：2026-10-27  
+> **状态**：已实现（本文档保留作需求追溯；v2.0 起为 Rust 实现，v1.x Python 实现归档于 `legacy-python/`；v2.1 增补 Markdown 转纯文本）
 
 ---
 
@@ -64,6 +64,15 @@ AutoTyper 是一款通用的 Windows 桌面输入工具，通过调用 Windows �
 | F-14 | 多段文本 | 支持保存和管理多段常用文本，按名称快速调用 |
 | F-15 | 导入/导出 | 支持文本片段的 JSON 导入和导出 |
 
+### 2.5 Markdown 转纯文本（P1 — 重要，v2.1）
+
+背景：部分输入框不支持 Markdown，而 AI 输出的内容往往是 Markdown 格式，直接输入会带上 `#`、`**`、表格竖线等语法记号。
+
+| 编号 | 功能 | 描述 |
+|------|------|------|
+| F-16 | GUI 一键转换 | 「输入文本」旁提供「转为纯文本」按钮，原地替换文本区内容（所见即所输），并提供「撤销转换」恢复原文 |
+| F-17 | CLI 剥离开关 | `--strip-markdown` 开关，默认关闭，对 `--text` / `--file` / `--snippet` 三种输入源均生效 |
+
 ---
 
 ## 3. 非功能需求
@@ -106,6 +115,7 @@ AutoTyper/
 │   ├── engine.rs              # 输入引擎：PostMessageW 封装
 │   ├── cli.rs                 # CLI 入口
 │   ├── gui.rs                 # GUI 界面（egui/eframe）
+│   ├── markdown.rs            # Markdown 转纯文本（零依赖手写转换器）
 │   └── config.rs              # 配置文件管理
 ├── tests/                     # 端到端注入测试
 ├── docs/                      # 文档
@@ -131,6 +141,7 @@ AutoTyper/
 | Win32 绑定 | 手写 FFI（不用 `windows` crate） | API 面极小（十余个函数），避免依赖体积与版本漂移 |
 | GUI 框架 | `egui` / `eframe` | 纯 Rust、即时模式、高 DPI 原生支持 |
 | 配置格式 | JSON（serde，保持键序） | 人类可读，与 v1.x `config.json` 完全兼容 |
+| Markdown 转换 | 手写两阶段状态机（`markdown.rs`，零依赖） | 不引入 markdown 解析 crate：代码块保护、表格中日韩宽度对齐、LaTeX 白名单均需自实现；正则批量替换会把代码块里的 `#include` 误判为标题，且错误是静默的 |
 | 打包方式 | `cargo build --release`（GitHub Actions 自动构建） | 推送版本标签即发布独立 `.exe` 到 GitHub Releases，仓库不含二进制 |
 
 ---
@@ -145,6 +156,7 @@ AutoTyper/
 | M4 | 配置管理 | `config/manager.py` + `config.json` |
 | M5 | 测试 + 文档 | 单元测试 + README + SPEC |
 | M6 | Rust 重写（v2.0） | `src/*.rs` 全模块 + 端到端注入测试 + CI 切换 cargo |
+| M7 | Markdown 转纯文本（v2.1） | `markdown.rs` + GUI 按钮 + `--strip-markdown` + 45 个单元测试 |
 
 ---
 
@@ -155,3 +167,5 @@ AutoTyper/
 | 部分应用拦截 `WM_CHAR` | 输入无效 | 尚未实现备选方案；如有需求可扩展 `SendInput` 路径（见风险登记，非当前范围） |
 | 高 DPI 缩放导致窗口定位偏移 | 输入到错误窗口 | 提示用户手动确认焦点窗口 |
 | 输入速度过快导致丢字 | 内容不完整 | 提供速度调节，推荐 ≥10ms |
+| 纯文本表格对齐依赖等宽字体 | 比例字体下表格列可能错位 | 按字符显示宽度（全角记 2）对齐，保证源侧规整；目标输入框字体不可控，不做额外承诺 |
+| Markdown 缩进式代码块与列表嵌套无法区分 | 4 空格缩进内容可能按普通段落处理 | 保守策略：不猜测，按段落/列表原样保留 |

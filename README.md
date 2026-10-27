@@ -66,6 +66,9 @@ AutoTyper.exe --cli --file answer.py
 # 自定义参数
 AutoTyper.exe --cli --file answer.py --interval 0.02 --countdown 3
 
+# 输入 AI 输出的 Markdown 文件，先转为纯文本
+AutoTyper.exe --cli --file answer.md --strip-markdown
+
 # 使用已保存的文本片段
 AutoTyper.exe --cli --snippet "常用代码段"
 AutoTyper.exe --cli --list-snippets
@@ -85,6 +88,7 @@ AutoTyper.exe --cli --list-snippets
 | 紧急停止 | 鼠标移至屏幕四角或 `Ctrl+C` 立即中断 |
 | 双模式 | 图形界面（egui）与命令行 |
 | 文本片段管理 | 保存、加载、导入导出多段常用文本 |
+| Markdown 转纯文本 | 一键去掉 AI 输出内容里的 Markdown 记号（表格按显示宽度对齐、LaTeX 白名单转换），用于不支持 Markdown 的输入框 |
 | 配置持久化 | 用户偏好保存在 `config.json` |
 | 原生 Win32 FFI | 手写 FFI 声明，不依赖 windows crate，二进制体积小 |
 
@@ -104,6 +108,7 @@ AutoTyper/
 │   ├── engine.rs              # 输入引擎（WM_CHAR / VK_RETURN / VK_TAB 注入循环）
 │   ├── cli.rs                 # CLI 参数解析与运行流程
 │   ├── gui.rs                 # GUI 界面（egui/eframe）
+│   ├── markdown.rs            # Markdown 转纯文本（零依赖手写转换器）
 │   └── config.rs              # 配置文件管理（serde + 顺序保持）
 ├── tests/
 │   └── window_injection.rs    # 端到端测试：真实隐藏窗口探针验证消息序列
@@ -168,11 +173,11 @@ AutoTyper/
 2. 推送版本标签：
 
    ```bash
-   git tag v2.0.0
-   git push origin v2.0.0
+   git tag v2.1.0
+   git push origin v2.1.0
    ```
 
-3. `release.yml` 工作流在 windows-latest 上先运行 `cargo test`，再执行 `cargo build --release`，产物 `AutoTyper-v2.0.0-win64.exe` 自动发布到 GitHub Releases
+3. `release.yml` 工作流在 windows-latest 上先运行 `cargo test`，再执行 `cargo build --release`，产物 `AutoTyper-v2.1.0-win64.exe` 自动发布到 GitHub Releases
 
 本地手动构建：
 
@@ -190,7 +195,7 @@ cargo test
 
 测试分三层：
 
-- 引擎与配置的单元测试（`src/` 内嵌，纯逻辑，不触达真实窗口）
+- 引擎、配置与 Markdown 转换的单元测试（`src/` 内嵌，纯逻辑，不触达真实窗口）
 - CLI 解析与输出的单元测试（互斥组、退出码、片段列表、进度条渲染）
 - 端到端注入测试（`tests/window_injection.rs`：创建真实隐藏窗口作为探针，验证 `WM_CHAR` / `WM_KEYDOWN` / `WM_KEYUP` 的完整消息序列与 Unicode 码位）
 
